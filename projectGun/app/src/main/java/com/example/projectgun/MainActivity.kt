@@ -1,68 +1,81 @@
 package com.example.projectgun
 
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.Button
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 
-class MainActivity : ComponentActivity() {
+class MainActivity : ComponentActivity(), SensorEventListener {
+
+    private lateinit var sensorManager: SensorManager
+    private var accelerometer: Sensor? = null
+    private var _sensorValues = mutableStateOf(Triple(0f, 0f, 0f))
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
+        accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+
         setContent {
-            UIPrincipal()
+            UIPrincipal(sensorValues = _sensorValues.value)
+        }
+
+        // Registrar el sensor
+        accelerometer?.let {
+            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
+        }
+    }
+
+    override fun onSensorChanged(event: SensorEvent?) {
+        event?.let {
+            _sensorValues.value = Triple(it.values[0], it.values[1], it.values[2])
+        }
+    }
+
+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
+        // No es obligatorio manejar esto
+    }
+
+    override fun onPause() {
+        super.onPause()
+        sensorManager.unregisterListener(this)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        accelerometer?.let {
+            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
         }
     }
 }
 
 @Composable
-fun UIPrincipal() {
-    val contexto = LocalContext.current
-    var nombre by rememberSaveable { mutableStateOf("") }
-
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
+fun UIPrincipal(sensorValues: Triple<Float, Float, Float>) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(16.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Column(
-            modifier = Modifier
-                .padding(16.dp)
-                .fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(text = "Nombre:")
-
-            OutlinedTextField(
-                value = nombre,
-                onValueChange = { nombre = it },
-                label = { Text("Introduce tu nombre") },
-                modifier = Modifier
-                    .padding(vertical = 8.dp)
-                    .fillMaxWidth(0.8f)
-            )
-
-            Button(
-                onClick = { Toast.makeText(contexto, "Hola $nombre!!", Toast.LENGTH_LONG).show() },
-                modifier = Modifier.padding(top = 8.dp)
-            ) {
-                Text("Saludar!")
-            }
-        }
+        Text(text = "Acelerómetro:")
+        Text(text = "X: ${sensorValues.first}")
+        Text(text = "Y: ${sensorValues.second}")
+        Text(text = "Z: ${sensorValues.third}")
     }
 }
 
 @Preview(showBackground = true)
 @Composable
 fun Previsualizacion() {
-    UIPrincipal()
+    UIPrincipal(sensorValues = Triple(0f, 0f, 0f))
 }
